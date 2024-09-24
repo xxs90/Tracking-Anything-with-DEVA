@@ -27,12 +27,21 @@ if __name__ == '__main__':
     Arguments loading
     """
     parser = ArgumentParser()
-
+    
     add_common_eval_args(parser)
     add_ext_eval_args(parser)
     add_auto_default_args(parser)
+
+    parser.add_argument('--cuda_device', type=int, default=0, help='CUDA device number')
+
     deva_model, cfg, args = get_model_and_config(parser)
-    sam_model = get_sam_model(cfg, 'cuda')
+
+    # Set the specified CUDA device
+    torch.cuda.set_device(args.cuda_device)
+    device=torch.device(f'cuda:{args.cuda_device}')
+
+    deva_model = deva_model.to(device)
+    sam_model = get_sam_model(cfg, device)
     """
     Temporal setting
     """

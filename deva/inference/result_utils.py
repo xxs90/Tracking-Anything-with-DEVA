@@ -100,6 +100,7 @@ class ResultSaver:
                                                                                                  0]
         # Probability mask -> index mask
         mask = torch.argmax(prob, dim=0)
+        # print('mask', mask.shape)
 
         args = ResultArgs(
             saver=self,
@@ -162,6 +163,11 @@ def save_result(queue: Queue):
                 new_mask[mask == tmp_id] = obj.id
             mask = new_mask
 
+        # Save the .npy file
+        npy_out_path = path.join(saver.output_root, saver.output_postfix or "", saver.video_name or "")
+        os.makedirs(npy_out_path, exist_ok=True)
+        np.save(path.join(npy_out_path, frame_name[:-4] + '.npy'), mask.numpy())
+
         # record output in the json file
         if saver.json_style == 'vipseg':
             for seg in segments_info:
@@ -218,7 +224,7 @@ def save_result(queue: Queue):
                 out_img = Image.fromarray(out_mask)
                 if saver.palette is not None:
                     out_img.putpalette(saver.palette)
-
+            
             if saver.dataset != 'gradio':
                 # find a place to save the mask
                 if saver.output_postfix is not None:
@@ -227,10 +233,10 @@ def save_result(queue: Queue):
                     this_out_path = saver.output_root
                 if saver.video_name is not None:
                     this_out_path = path.join(this_out_path, saver.video_name)
-
+            
                 os.makedirs(this_out_path, exist_ok=True)
                 out_img.save(path.join(this_out_path, frame_name[:-4] + '.png'))
-
+            
             if saver.visualize and saver.object_manager.use_long_id:
                 if image_np is None:
                     if path_to_image is not None:
@@ -240,7 +246,7 @@ def save_result(queue: Queue):
                 alpha = (out_mask == 0).astype(np.float32) * 0.5 + 0.5
                 alpha = alpha[:, :, None]
                 blend = (image_np * alpha + rgb_mask * (1 - alpha)).astype(np.uint8)
-
+            
                 if prompts is not None:
                     # draw bounding boxes for the prompts
                     all_masks = []
@@ -256,7 +262,7 @@ def save_result(queue: Queue):
                         all_masks = torch.stack(all_masks, dim=0)
                         xyxy = torchvision.ops.masks_to_boxes(all_masks)
                         xyxy = xyxy.numpy()
-
+            
                         detections = sv.Detections(xyxy,
                                                    confidence=np.array(all_scores),
                                                    class_id=np.array(all_cat_ids))
@@ -267,7 +273,7 @@ def save_result(queue: Queue):
                         blend = label_annotator.annotate(scene=blend,
                                                         detections=detections,
                                                         labels=labels)
-
+            
                 if saver.dataset != 'gradio':
                     # find a place to save the visualization
                     if saver.visualize_postfix is not None:
@@ -276,10 +282,11 @@ def save_result(queue: Queue):
                         this_out_path = saver.output_root
                     if saver.video_name is not None:
                         this_out_path = path.join(this_out_path, saver.video_name)
-
+            
                     os.makedirs(this_out_path, exist_ok=True)
                     Image.fromarray(blend).save(path.join(this_out_path, frame_name[:-4] + '.jpg'))
                 else:
                     saver.writer.write(blend[:, :, ::-1])
+            # pass
 
         queue.task_done()
